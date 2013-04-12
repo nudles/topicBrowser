@@ -1,0 +1,39 @@
+<!--- This is the configuation file for the whole topic browser project-->
+
+<TopicBrowser>
+	<!-- file for stop word list-->
+	<stopWord>config/en-stopwords.txt</stopWord>
+	
+	<!-- 
+		file for word dictionary constructed from tweets 
+		collection in the format: id word frequency(occurrence)
+	-->
+	<dictionary>data/dictionary.txt</dictionary>
+	
+	<!--
+		word occurrence threshold. words occurs less than the threshold won't be considered
+	-->
+	<wordOccrT>30</wordOccrT>
+	
+	<!--file tokenizer model -->
+	<tokenModel>config/en-token.bin</tokenModel>
+	
+	<!--earlist tweet "date" for this collection-->
+	<startT>2012-07-01T00:00:00.000Z</startT>
+	
+	<!-- time window in terms of hours -->
+	<timeW>24</timeW>
+	
+	<!-- raw tweet collection file/directory-->
+	<rawDocsD>C:/Users/a0082293/Downloads/twitter.tar/twitter/tweets</rawDocsD>
+	
+	<!-- cleaned tweet file path -->
+	<docsD>data/tweets</docsD>
+	
+	<!-- tweet offset file -->
+	<statF>data/stat.txt</statF>
+
+</TopicBrowser>
+	
+	
+	
