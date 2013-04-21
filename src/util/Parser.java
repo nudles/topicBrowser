@@ -3,7 +3,7 @@ package util;
 import java.io.IOException;
 
 public abstract class Parser {
-    protected Dictionary dict = null;
+    public Dictionary dict = null;
 
     public Parser(Configure conf) throws IOException{
 	dict = new Dictionary(conf);

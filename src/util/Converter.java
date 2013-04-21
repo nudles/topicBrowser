@@ -8,6 +8,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
 
+import org.apache.log4j.Logger;
+
+
 /*
  * read raw docs(e.g., tweets) from data collection(a set of files), then 
  * 1. extract key info, e.g., id, time, text, and remove unnecessary fields
@@ -16,6 +19,8 @@ import java.util.HashMap;
  * 3. construct a dictionary by parsing words from doc text
  */
 public class Converter {
+    static final Logger logger = Logger.getLogger(Converter.class);
+    
     /* files containing raw documents, each line in a file is one raw doc */
     public File rawDocsDir;
 
@@ -23,8 +28,7 @@ public class Converter {
     public File docsDir;
 
     private Parser parser;
-    private long progress;
-
+  
     Configure conf = null;
 
     /*
@@ -49,13 +53,10 @@ public class Converter {
 
 	File dictFile = conf.getDictionaryFile();
 	if (dictFile.exists()) {
-	    System.out.println("deleting previous file:" + dictFile.getName());
+	    logger.info("deleting previous file:" + dictFile.getName());
 	    //parser.loadDictionary();
 	    dictFile.delete();
-	}
-
-	
-	progress = 0;
+	}	
     }
 
     /*
@@ -63,16 +64,14 @@ public class Converter {
      * store parsed docs on disk
      */
     public void convert() throws IOException {
-	int k = 1;
-
+	
 	/*
 	 * each time window has a file to store docs within that time period
 	 * thus an entry in the hash map is time slot(window)-->BufferedWriter for a file
 	 */
 	HashMap<Integer, BufferedWriter> out = new HashMap<Integer, BufferedWriter>();
 	for (File f : rawDocsDir.listFiles()) {
-	    System.out
-		    .println("Processing the:" + k + "th file:" + f.getName());
+	    logger.info("Processing file:" + f.getName());
 
 	    BufferedReader in = new BufferedReader(new FileReader(f));
 	    doConvert(in, out);
@@ -84,36 +83,32 @@ public class Converter {
 	    writer.close();
 	}
 
-	parser.saveDictionary();
-	conf.saveStat(progress + " tweets have been processed");
+	parser.saveDictionary();	
     }
 
     void doConvert(BufferedReader in, HashMap<Integer, BufferedWriter> out)
 	    throws IOException {
-	String line;
-	Document doc;
-	String str;
+	
 	int slot;
+	String line;	
+	String str;	
+	Document doc;
 	BufferedWriter writer;
 	while ((line = in.readLine()) != null) {
 	    doc = parser.parseRawDocument(line);
 
 	    if (doc != null) {
-		str = doc.encode() + "\n";
+		str = doc.toString() + "\n";
 		slot = doc.getSlot();
 		writer = out.get(slot);
 		if (writer == null) {
-		    System.out.println(docsDir.getPath());
+		    
 		    writer = new BufferedWriter(new FileWriter(
 			    docsDir.getPath()+"/"+ slot + ".txt"));
 		    out.put(slot, writer);
 		}
 
-		writer.write(str);
-
-		progress++;
-		if (progress % 100 == 0)
-		    System.out.println(progress + " docs have been processed");
+		writer.write(str);		
 	    }
 	}
     }

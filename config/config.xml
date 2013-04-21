@@ -13,25 +13,31 @@
 	<!--
 		word occurrence threshold. words occurs less than the threshold won't be considered
 	-->
-	<wordOccrT>30</wordOccrT>
+	<wordOccrT>50</wordOccrT>
 	
 	<!--file tokenizer model -->
 	<tokenModel>config/en-token.bin</tokenModel>
 	
 	<!--earlist tweet "date" for this collection-->
-	<startT>2012-07-01T00:00:00.000Z</startT>
+	<startT>2012-07-30T00:00:00.000Z</startT>
 	
 	<!-- time window in terms of hours -->
-	<timeW>24</timeW>
+	<timeW>12</timeW>
 	
 	<!-- raw tweet collection file/directory-->
 	<rawDocsD>C:/Users/a0082293/Downloads/twitter.tar/twitter/tweets</rawDocsD>
 	
 	<!-- cleaned tweet file path -->
-	<docsD>data/tweets</docsD>
+	<docsD>data/test</docsD>
 	
-	<!-- tweet offset file -->
-	<statF>data/stat.txt</statF>
+	<!-- log4j property file -->
+	<logConf>data/log.conf</logConf>
+	
+	<!--threahold for OPTICS clustering-->
+	<meps>0.7</meps>
+	<eps>0.4</eps>
+	<minPts>40</minPts>
+	
 
 </TopicBrowser>
 	

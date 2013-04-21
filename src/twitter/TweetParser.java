@@ -23,6 +23,7 @@ import org.xml.sax.SAXException;
 
 import util.Configure;
 
+import util.Dictionary;
 import util.Document;
 import util.Parser;
 import util.Stemmer;
@@ -40,19 +41,22 @@ import opennlp.tools.tokenize.TokenizerModel;
  */
 
 public class TweetParser extends Parser {
+    
+    static final Logger logger = Logger.getLogger(TweetParser.class);
+    
     Stemmer stemmer = null;
     Tokenizer tokenizer = null;
 
     Pattern stopWordPattern = null;
     Pattern englishChecker = null;
     
-    private TLongObjectHashMap<Tweet> tSet;
+    private TLongObjectHashMap<Document> docSet;
 
     public TweetParser(Configure conf) throws IOException {
 	
 	super(conf);
 	
-	tSet = new TLongObjectHashMap<Tweet>();
+	docSet = new TLongObjectHashMap<Document>();
 	
 	stemmer = new Stemmer();
 	initTokenizer(conf.getTokenModelFile());
@@ -62,7 +66,7 @@ public class TweetParser extends Parser {
 
     
     public void clearTweetSet() {
-	tSet.clear();
+	docSet.clear();
     }
 
 
@@ -75,6 +79,7 @@ public class TweetParser extends Parser {
     
     void initStopWordPattern(File file) throws IOException {
 	BufferedReader reader = new BufferedReader(new FileReader(file));
+	
 	String line;
 	String stopWord = "";
 	while ((line = reader.readLine()) != null) {
@@ -133,7 +138,8 @@ public class TweetParser extends Parser {
      * @see util.Parser#tokenize(java.lang.String)
      */
     public String[] tokenize(String text) {
-	return tokenizer.tokenize(text);
+	//return tokenizer.tokenize(text);
+	return text.split("\\s+");
     }
     
     /*
@@ -162,7 +168,7 @@ public class TweetParser extends Parser {
 	    JSONObject timeobj = (JSONObject) obj.get("crtdt");
 	    date = (String) timeobj.get("$date");
 	} catch (Exception e) {
-	    System.out.println(line);
+	    logger.warn(line);
 	    return null;
 	}
 
@@ -176,7 +182,7 @@ public class TweetParser extends Parser {
 	} catch (ParseException e) {
 	    // TODO Auto-generated catch block
 	    e.printStackTrace();
-	    Logger.getLogger(TweetParser.class).warn(
+	    logger.warn(
 		    "can't parse the time for tweet:" + line);
 	    return null;
 	}
@@ -196,12 +202,12 @@ public class TweetParser extends Parser {
      * (non-Javadoc)
      * @see util.Parser#parseDocument(java.lang.String)
      */
-    public Document parseDocument(String doc){	
+    public Document parseDocument(String docStr){	
 	Long id = 0l, retid = 0l, time;
 	String text = "";
 	
 	try {
-	    JSONObject obj = (JSONObject) JSONValue.parse(doc);
+	    JSONObject obj = (JSONObject) JSONValue.parse(docStr);
 	    id = (Long) obj.get("id");
 	    if (id == null) {
 		return null;
@@ -210,10 +216,11 @@ public class TweetParser extends Parser {
 	    //for a retweet, if it is in current window, then inc its support
 	    //otherwise regard this tweet as the original tweet
 	    retid = (Long) obj.get("retid");
-	    if(retid!=null){
-		Tweet origTweet=tSet.get(retid);
-		if(origTweet!=null){
-		    origTweet.incSupport();
+	    if(retid>0){		
+		
+		Document origDoc=docSet.get(retid);
+		if(origDoc!=null){
+		    origDoc.incSupport();
 		    return null;
 		}
 		else id=retid;
@@ -227,22 +234,28 @@ public class TweetParser extends Parser {
 	    if (!isEnglish(text))
 		return null;
 	} catch (Exception e) {
-	    System.out.println(doc);
+	    logger.warn(docStr);
 	    return null;
 	}
 	
 	
 	HashMap<String, Integer> words = new HashMap<String, Integer>();
-	int len= parseText(text,words);
-	Tweet tweet=new Tweet(id,retid,1,time,null,len);
+	parseText(text,words);
+	
+	Document doc=new Document(id,1,time);
+	doc.initWordVector(words.size());
 	
 	for (Map.Entry<String, Integer> entry : words.entrySet()) {
-	    int wId=dict.retrieve(entry.getKey());
-	    if(wId>0)
-		tweet.append(wId, entry.getValue());
+	    Dictionary.Word word=dict.retrieve(entry.getKey());
+	    if(word!=null)
+		doc.append(word.getId(), word.getIdf()*entry.getValue());
 	}
 	
-	return tweet;
+	doc.reOrder();
+	doc.normalize();
+	
+	docSet.put(id, doc);
+	return doc;
     }
     
     
@@ -254,14 +267,13 @@ public class TweetParser extends Parser {
      * @return  number of tokens within the text
      */
      int parseText(String text,HashMap<String, Integer> words) {
-	
+	text=text.replaceAll("\\p{Punct}+", " ");
 	String[] tokens = tokenize(text);
 	
 
 	for (int i = 0; i < tokens.length; i++) {
 	    String token = stemWord(tokens[i]).toLowerCase();//tokens[i].toLowerCase();// 
-	    if (token.length()==1||isStopWord(token) || token.startsWith("@")
-		    || token.startsWith("://t")||token.matches("(\\p{Punct}+[a-zA-Z]?)|([a-zA-Z]?\\p{Punct}+)"))
+	    if (token.length()==1||isStopWord(token)||token.matches("[0-9]+"))
 		continue;
 
 	    Integer occrNum = words.get(token);
@@ -285,7 +297,7 @@ public class TweetParser extends Parser {
 	} catch (IOException e) {
 	    // TODO Auto-generated catch block
 	    e.printStackTrace();
-	    System.out.println("error in saving dictionary to disk");
+	    logger.warn("error in saving dictionary to disk");
 	}
     }
     
@@ -300,8 +312,8 @@ public class TweetParser extends Parser {
 	conf.config();
 	
 	TweetParser parser=new TweetParser(conf);
-	
-	//HashMap<String, Integer> words = parser.parseText(text);
+	HashMap<String, Integer> words=new HashMap<String, Integer> ();
+	parser.parseText(text,words);
 	System.out.println(parser.stemWord("decidedly"));
     }
 

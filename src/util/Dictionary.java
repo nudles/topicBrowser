@@ -14,15 +14,18 @@ import java.util.Map;
 
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.apache.log4j.Logger;
 import org.xml.sax.SAXException;
 
 public class Dictionary {
-
+    static final Logger logger = Logger.getLogger(Dictionary.class);
     // wordStr->word: map word string to Word instance
-    private HashMap<String, Word> dict = null;
+    public HashMap<String, Word> dict = null;
 
     // filter strange word string, e.g., @windy_linanda,KKKK
     private int occrThreshold = 1;
+    
+    final float TotalDocs=1000000f;
 
     File dictFile;
     Configure conf;
@@ -53,14 +56,25 @@ public class Dictionary {
 	return word.getId();
     }
 
-    public int retrieve(String w){
-	Word word=dict.get(w);
-	if(word!=null)
-	    return word.id;
-	else return -1;
+    public Word retrieve(String w){	
+	return dict.get(w);
     }
+    
+    
+    
     void showStats() {
 
+    }
+    
+    public float getIdf(int id){
+	return (float) Math.log(dict.size()/(1.0f+dict.get(id).getOccr()));
+    }
+    
+    /*
+     * @return number of enties of the dictionary
+     */
+    public int getSize(){
+	return dict.size();
     }
 
     public void loadDictionary()throws IOException{
@@ -68,26 +82,55 @@ public class Dictionary {
     }
     
     public void loadDictionary(File dictFile) throws IOException {
-	System.out.println("loading dictionary from "+dictFile.getName());
+	logger.info("loading dictionary from "+dictFile.getName());
 	BufferedReader in = new BufferedReader(new FileReader(dictFile));
 	String line;
 	String word;
 	int occrNum;
+	int wid;
 
-	while ((line = in.readLine()) != null) {
+	while ((line = in.readLine()) != null) {	    
 	    String[] field = line.split("\t");
 	    
-	    word = field[1];	   
+	    wid=Integer.parseInt(field[0]);
+	    word = field[1];	   	    
 	    occrNum = Integer.parseInt(field[2]);
 	    if(occrNum>occrThreshold)
-		add(word, occrNum);
+		dict.put(word, new Word(wid,(float) (Math.log(TotalDocs)/(1f+occrNum))));	    
 	}
+	in.close();
 	
-	System.out.println(dict.size()+" entities have been loaded\n");
+	logger.info(dict.size()+" entities have been loaded\n");
+    }
+    
+    /*
+     * load the dictionary for adjustment
+     */
+    public void loadRawDictionary(File dictFile) throws IOException {
+	logger.info("loading dictionary from "+dictFile.getName());
+	BufferedReader in = new BufferedReader(new FileReader(dictFile));
+	String line;
+	String word;
+	int occrNum;
+	int wid;
+
+	while ((line = in.readLine()) != null) {	    
+	    String[] field = line.split("\t");
+	    
+	    wid=Integer.parseInt(field[0]);
+	    word = field[1];	   	    
+	    occrNum = Integer.parseInt(field[2]);
+	    if(occrNum>occrThreshold)
+	    {
+		dict.put(word, new Word(word,wid,occrNum));//Word(word,wid,occrNum));
+	    }
+	}
+	in.close();
+	logger.info(dict.size()+" entities have been loaded\n");
     }
 
     public void saveDictionary() throws IOException {
-	System.out.println("saving dictionary to disk...");
+	logger.info("saving dictionary to disk...");
 	BufferedWriter out = new BufferedWriter(new FileWriter(dictFile));
 
 	for (Map.Entry<String, Word> entry : dict.entrySet()) {
@@ -95,15 +138,12 @@ public class Dictionary {
 	}
 	out.flush();
 	out.close();
-	System.out.println(dict.size() + " entities have been saved to "
-		+ dictFile.getName()+"\n");
-	
-	conf.saveStat(dict.size() + " entities have been saved to "
-		+ dictFile.getName()+"\n");
+	logger.info(dict.size() + " entities have been saved to "
+		+ dictFile.getName()+"\n");	
     }
 
     public void saveDictionarySortedByOccr() throws IOException {
-	System.out.println("saving dictionary to disk...\n");
+	logger.info("saving dictionary to disk...");
 	BufferedWriter out = new BufferedWriter(new FileWriter(dictFile));
 
 	List<Word> list = new ArrayList<Word>(dict.values());
@@ -114,41 +154,51 @@ public class Dictionary {
 	}
 	out.flush();
 	out.close();
-	System.out.println(list.size() + " entities have been saved to "
+	logger.info(list.size() + " entities have been saved to "
 		+ dictFile.getName()+"\n");
 	
-	conf.saveStat(dict.size() + " entities have been saved to "
-		+ dictFile.getName()+"\n");
     }
 
     void save(Word w, BufferedWriter out) throws IOException {
-	if (w.getOccr() > occrThreshold) {	    
+	if (w.getOccr() > occrThreshold)
+	{	    
 	    out.write(w.getId() + "\t" + w.getWord() + "\t" + w.getOccr());
 	    out.newLine();
 	}
     }
 
-    class Word implements Comparable<Word> {
+    public class Word implements Comparable<Word> {
 	String raw;
 	int id;
 	int occr;
+	float idf;
 
 	public Word(String w, int id, int occr) {
 	    this.raw = w;
 	    this.id = id;
 	    this.occr = occr;
 	}
+	
+	public Word(int id, float idf) {
+	    
+	    this.id = id;
+	    this.idf=idf;
+	}
 
 	String getWord() {
 	    return raw;
 	}
 
-	int getId() {
+	public int getId() {
 	    return id;
 	}
 
-	int getOccr() {
+	public int getOccr() {
 	    return occr;
+	}
+	
+	public float getIdf(){
+	    return idf;
 	}
 
 	public int compareTo(Word other) {
@@ -163,7 +213,7 @@ public class Dictionary {
 	conf.config();
 
 	Dictionary d = new Dictionary(conf);
-	d.loadDictionary(new File("data/bigDict.txt"));
+	d.loadRawDictionary(new File("data/dictionary.txt"));
 	d.saveDictionarySortedByOccr();
     }
 }

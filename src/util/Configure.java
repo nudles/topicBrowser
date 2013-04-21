@@ -1,8 +1,6 @@
 package util;
 
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -14,6 +12,7 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -22,37 +21,36 @@ import org.xml.sax.SAXException;
 
 public class Configure {
     private enum ParamName {
-	platform,stopWord, dictionary, wordOccrT, tokenModel, startT, timeW, rawDocsD, docsD,statF,unknown
+	platform, stopWord, dictionary, wordOccrT, tokenModel, startT, timeW, rawDocsD, docsD, meps, eps, minPts, logConf, unknown
     };
-
-    
 
     public static long startTime = 0;
     public static long timeWindow = 0;
-    
+
     private int wordOccrThreshold = 1;
-    
-    private String platformName="Twitter";
-    
-    
+
+    private String platformName = "Twitter";
+
     private File stopWordFile = null;
     private File dictionaryFile = null;
     private File dictionaryStat = null;
     private File tokenModelFile = null;
     private File rawDocsDir = null;
     private File docsDir = null;
-    private File statFile=null;
+    
 
+    private float mepsValue = 1f;
+    private float epsValue = 1f;
+    private int minPtsValue = 100;
 
     String configFile = "data/config.xml";
-    
 
     public Configure(String file) {
 	configFile = file;
-	BasicConfigurator.configure();
+
     }
 
-    public Configure()  {
+    public Configure() {
 	BasicConfigurator.configure();
     }
 
@@ -72,18 +70,14 @@ public class Configure {
 	}
     }
 
-    public void saveStat(String msg) throws IOException{
-	BufferedWriter out=new BufferedWriter(new FileWriter(statFile,true));
-	out.write(msg);
-	out.newLine();
-	out.flush();
-	out.close();
+    public static int getSlot(long time){	    
+	return (int) ((time - Configure.startTime) / Configure.timeWindow);	    
     }
-    
-    public String getPlatform(){
+
+    public String getPlatform() {
 	return platformName;
     }
-    
+
     public File getStopWordFile() {
 	return stopWordFile;
     }
@@ -111,7 +105,27 @@ public class Configure {
     public File getRawDocsDir() {
 	return rawDocsDir;
     }
-    
+
+    /*
+     * @return the max epsilon value for OPTICS clustering
+     */
+    public float getEps() {
+	return epsValue;
+    }
+
+    /*
+     * @return the epsilon value for OPTICS clustering
+     */
+    public float getMeps() {
+	return mepsValue;
+    }
+
+    /*
+     * @return the minimum points of a cluster for OPTICS
+     */
+    public int getMinPts() {
+	return minPtsValue;
+    }
 
     private ParamName resolveParamName(String name) {
 	try {
@@ -159,14 +173,14 @@ public class Configure {
 		switch (resolveParamName(xmlParam.getNodeName())) {
 
 		case platform:
-		    this.platformName=paramValue;
+		    this.platformName = paramValue;
 		    break;
 		case stopWord:
 		    this.stopWordFile = new File(paramValue);
 		    break;
 		case dictionary:
 		    this.dictionaryFile = new File(paramValue);
-		    break;		
+		    break;
 		case wordOccrT:
 		    this.wordOccrThreshold = Integer.valueOf(paramValue);
 		    break;
@@ -176,7 +190,7 @@ public class Configure {
 		case startT:
 		    try {
 			SimpleDateFormat dateFormat = new SimpleDateFormat(
-			"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+				"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 			Date date = dateFormat.parse(paramValue);
 			Configure.startTime = date.getTime();
 		    } catch (ParseException e) {
@@ -185,16 +199,28 @@ public class Configure {
 		    }
 		    break;
 		case timeW:
-		    Configure.timeWindow = 3600 * Integer.parseInt(paramValue)*1000;
+		    Configure.timeWindow = 3600 * Integer.parseInt(paramValue) * 1000;
 		    break;
 		case rawDocsD:
-		    rawDocsDir = new File(paramValue);		    
+		    rawDocsDir = new File(paramValue);
 		    break;
 		case docsD:
-		    docsDir=new File(paramValue);
+		    docsDir = new File(paramValue);
+		    break;		
+		case eps:
+		    epsValue = Float.parseFloat(paramValue);
 		    break;
-		case statF:
-		    statFile=new File(paramValue);
+		case meps:
+		    mepsValue = Float.parseFloat(paramValue);
+		    break;
+		case minPts:
+		    minPtsValue = Integer.parseInt(paramValue);
+		    break;
+		case logConf:
+		    File logProperty = new File(paramValue);
+		    if (logProperty.exists())
+			PropertyConfigurator.configure(paramValue);
+		    else BasicConfigurator.configure();
 		    break;
 
 		default:

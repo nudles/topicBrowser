@@ -2,13 +2,9 @@ package twitter;
 
 import java.io.IOException;
 import java.io.StringWriter;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Vector;
-
 import org.json.simple.JSONObject;
 
-import util.Configure;
+
 import util.Document;
 
 public class Tweet extends Document{
@@ -17,7 +13,7 @@ public class Tweet extends Document{
     //if this tweet is a retweet, retid is the original tweet id
     public long retid=0;
     protected String text;
-    
+    protected int len;
 
     public Tweet(long id, long retid, int support, long time){
 	super(id,support,time);
@@ -28,7 +24,7 @@ public class Tweet extends Document{
 	super(id,support,time);
 	this.retid=retid;	
 	this.text=text;
-	this.vec=new Vector<Word>(15);
+	
     }
     
     /*
@@ -47,7 +43,7 @@ public class Tweet extends Document{
      * @return  json string represent this tweet
      */
     @SuppressWarnings("unchecked")
-    public String encode(){
+    public String toString(){
 	
 	JSONObject jsonTweet=new JSONObject();
 	jsonTweet.put("id", new Long(id));
@@ -57,11 +53,11 @@ public class Tweet extends Document{
 	jsonTweet.put("text", text);
 	//jsonTweet.put("len", len);
 	
-	JSONObject jsonVec=new JSONObject();
+	/*JSONObject jsonVec=new JSONObject();
 	for(int i=0;i<vec.size();i++)
 	    jsonVec.put(vec.get(i).getId(),vec.get(i).getWeight());
 	if(vec.size()>0)
-	    jsonTweet.put("vec", jsonVec);
+	    jsonTweet.put("vec", jsonVec);*/
 	
 	StringWriter out=new StringWriter();
 	try {
