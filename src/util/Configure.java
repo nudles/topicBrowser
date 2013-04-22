@@ -21,7 +21,7 @@ import org.xml.sax.SAXException;
 
 public class Configure {
     private enum ParamName {
-	platform, stopWord, dictionary, wordOccrT, tokenModel, startT, timeW, rawDocsD, docsD, meps, eps, minPts, logConf, port, unknown
+	platform, stopWord, dictionary, wordOccrT, tokenModel, startT, timeW, rawDocsD, docsD, meps, eps, minPts, logConf, port, topk, unknown
     };
 
     public static long startTime = 0;
@@ -43,6 +43,7 @@ public class Configure {
     private float epsValue = 1f;
     private int minPtsValue = 100;
     private int portid=19899;
+    private int topK=10;
 
     String configFile = "data/config.xml";
 
@@ -78,6 +79,10 @@ public class Configure {
 
     public int getPort(){
 	return portid;
+    }
+    
+    public int getTopK(){
+	return topK;
     }
     
     public String getPlatform() {
@@ -230,6 +235,9 @@ public class Configure {
 		    break;
 		case port:
 		    portid=Integer.parseInt(paramValue);
+		    break;
+		case topk:
+		    topK=Integer.parseInt(paramValue);
 		    break;
 
 		default:

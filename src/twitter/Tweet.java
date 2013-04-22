@@ -12,29 +12,21 @@ public class Tweet extends Document{
     
     //if this tweet is a retweet, retid is the original tweet id
     public long retid=0;
+    
     protected String text;
-    protected int len;
+   
 
     public Tweet(long id, long retid, int support, long time){
 	super(id,support,time);
 	this.retid=retid;
     }
     
-    public Tweet(long id, long retid, int support, long time, String text, int len){
+    public Tweet(long id, long retid, int support, long time, String text){
 	super(id,support,time);
 	this.retid=retid;	
 	this.text=text;
 	
     }
-    
-    /*
-     * set tweet length in terms of words(include meaningless word, e.g., kkkkk)
-     * @param l length of the tweet
-     */
-    public  void setLength(int length){
-	len=length;
-    }
-    
     
     
     /*

@@ -10,12 +10,19 @@ import java.util.Vector;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
 
+
+/*
+ * Basic document class, inherited by {@Tweet} {@Topic}
+ */
 public class Document implements Comparable<Document> {
+    
     public long id;
+    
     protected long time;
     protected int support;
     protected Vector<Word> vec;
 
+    
     public Document(long id, int support, long time) {
 	this.id = id;
 	this.support = support;
@@ -26,6 +33,7 @@ public class Document implements Comparable<Document> {
 
     }
 
+    
     public void initWordVector(int size) {
 	vec = new Vector<Word>(size);
     }
@@ -84,14 +92,13 @@ public class Document implements Comparable<Document> {
     }
 
     public int compareTo(Document other) {
-	return this.support - other.support;
+	return  other.support-this.support;
     }
 
     /*
      * append a word into the vector representation of the document
-     * 
-     * @param id id the of word(from the {@link Dictionary})
-     * 
+     *  
+     * @param id id the of word(from the {@link Dictionary})     * 
      * @param weight weight(e.g., tf*idf) of the word
      */
     public void append(int id, float weight) {
@@ -105,8 +112,9 @@ public class Document implements Comparable<Document> {
     public void normalize() {
 	float sum = 0f;
 	for (int i = 0; i < vec.size(); i++)
-	    sum += vec.get(i).weight;
+	    sum += vec.get(i).weight*vec.get(i).weight;
 
+	sum=(float) Math.sqrt(sum);
 	for (int i = 0; i < vec.size(); i++)
 	    vec.get(i).weight /= sum;
     }
@@ -191,6 +199,10 @@ public class Document implements Comparable<Document> {
 
     /*
      * decode a document string
+     * 
+     * @param docStr a string representation for a document
+     * 
+     * @return a document instance for the docStr
      */
     public static Document parse(String docStr) {
 	try {

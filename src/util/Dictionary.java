@@ -96,7 +96,7 @@ public class Dictionary {
 	    word = field[1];	   	    
 	    occrNum = Integer.parseInt(field[2]);
 	    if(occrNum>occrThreshold)
-		dict.put(word, new Word(wid,(float) (Math.log(TotalDocs)/(1f+occrNum))));	    
+		dict.put(word, new Word(wid,(float) (Math.log(TotalDocs/(1f+occrNum)))));	    
 	}
 	in.close();
 	

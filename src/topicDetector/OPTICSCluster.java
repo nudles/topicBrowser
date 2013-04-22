@@ -35,7 +35,6 @@ public class OPTICSCluster implements Detector {
     static final Logger logger = Logger.getLogger(OPTICSCluster.class);
 
 
-
     // max epsilon for defining core object of OPTICS
     final float MaxEpsilon;
 
@@ -45,7 +44,11 @@ public class OPTICSCluster implements Detector {
     // epsilon for cluster determination
     final float Epsilon;
 
+    // to initalize core distance and reachability distance
     final float UNDEF = 1f;
+    
+    // maintain top k most popular documents for each topic
+    int TOPK=10;
 
     Parser parser;
 
@@ -56,6 +59,7 @@ public class OPTICSCluster implements Detector {
 	MinPts = conf.getMinPts();
     }
 
+    
     public OPTICSCluster(Configure conf, Parser parser) throws IOException {
 	MaxEpsilon = conf.getMeps();
 	Epsilon = conf.getEps();
@@ -65,6 +69,12 @@ public class OPTICSCluster implements Detector {
 	this.parser.loadDictionary();
     }
 
+    
+    /*
+     * load documents from file specified by path(without suffix) into vector docs
+     * 
+     * @return the updated docs vector
+     */
     public Vector<Document> loadDocuments(String path, Vector<Document> docs)
 	    throws FileNotFoundException {
 	logger.info("loading file "+path+".txt");
@@ -73,7 +83,7 @@ public class OPTICSCluster implements Detector {
 	String line;
 	long offset = 0, nextOffset = 0;
 
-	//record offset of each tweet within the doc file
+	//record offset of each document within the doc file
 	DocumentRandomAccess docAccess = new DocumentRandomAccess();
 	BufferedReader in = new BufferedReader(new FileReader(path+".txt"));
 
@@ -83,14 +93,17 @@ public class OPTICSCluster implements Detector {
 		Document doc = parser.parseDocument(line);
 		if (doc != null && doc.getWordVector().size() > 2) {
 		    k++;
-		    // record the offset of current tweet in the file
+		    // record the offset of current document in the file
 		    docAccess.addOffset(doc.getId(), offset);
 		    docs.add(doc);
 		}
 		offset = nextOffset;
+		
 	    }
-	    in.close();
+	    
+	    in.close();	    
 	    docAccess.saveOffset(path);
+	    
 	} catch (IOException e) {
 	    // TODO Auto-generated catch block
 	    e.printStackTrace();
@@ -99,21 +112,31 @@ public class OPTICSCluster implements Detector {
 	return docs;
     }
 
+    
+    /*
+     * load topics from file specified by path(without suffix) into vector topics
+     * 
+     * @return updated topics vector
+     */
     public Vector<Topic> loadTopics(String path, Vector<Topic> topics)
 	    throws FileNotFoundException {
 
 	String line;
 
+	//topics are stored in file with suffix .topic
 	BufferedReader in = new BufferedReader(new FileReader(path+".topic"));
-	long k = 1;
+	long k = topics.size();
 	try {
 	    while ((line = in.readLine()) != null) {
 
 		Topic topic = Topic.parse(line);
+
+		//assign a id for each topic in increasing order
 		topic.id = k++;
 		if (topic != null)
 		    topics.add(topic);
 	    }
+	    
 	    in.close();
 	} catch (IOException e) {
 	    // TODO Auto-generated catch block
@@ -129,17 +152,21 @@ public class OPTICSCluster implements Detector {
      * clustering algorithm can then be conducted on these rough clusters.
      * 
      * @param docs a set of documents
+     * 
+     * @return a vector of inverted list
      */
     public Vector<InvertedList> createDocIndex(Vector<Document> docs)
 	    throws IOException {
 
 	HashMap<Integer, InvertedList> invertedIndex = new HashMap<Integer, InvertedList>(
-		parser.dict.dict.size() / 10);
+		parser.dict.dict.size() / 100);
 
 	for (Document doc : docs) {
 	    for (Word word : doc.getWordVector()) {
 		InvertedList list = invertedIndex.get(word.getId());
+		
 		if (list == null) {
+		    //new a list if it does not exist
 		    list = new InvertedList(word.getId());
 		    invertedIndex.put(word.getId(), list);
 		}
@@ -149,10 +176,16 @@ public class OPTICSCluster implements Detector {
 
 	Vector<InvertedList> invertedLists = new Vector<InvertedList>(
 		invertedIndex.values());
+	
+	//TODO: sort invertedlists in some order that would accelerate the later clustering
 
 	return invertedLists;
     }
 
+    
+    /*
+     * similar as {@ createDocIndex}, but for topics
+     */
     public Vector<InvertedList> createTopicIndex(Vector<Topic> docs) {
 
 	HashMap<Integer, InvertedList> invertedIndex = new HashMap<Integer, InvertedList>();
@@ -175,6 +208,7 @@ public class OPTICSCluster implements Detector {
     }
     
     
+    
     /*
      * merge topics of selected time windows
      * 
@@ -189,14 +223,14 @@ public class OPTICSCluster implements Detector {
 	for (String path : paths)
 	    docs = loadTopics(path, docs);
 
-	// inverted list for dictionary word
+	// inverted list 
 	Vector<InvertedList> invertedLists = createTopicIndex(docs);
 	logger.info("finished creat inverted index.");
-	logger.info(docs.size() + " documents have been indexed.");
+	logger.info(docs.size() + " topics have been indexed.");
 
 	
+	
 	logger.info("cluser topics...");
-	// generate ordered points according to max epsilon and min points for OPTICS
 	
 	String tmpPath = "tmp/" + System.currentTimeMillis();
 	BufferedWriter out = new BufferedWriter(new FileWriter(tmpPath + ".orderedPoint"));
@@ -204,18 +238,25 @@ public class OPTICSCluster implements Detector {
 	    doOPTICSCluster(list.docs, out);
 	out.close();
 
-	logger.info("topics have been clustered.");
+	logger.info("Ordered points have been generated.");
 
+	
 	// determine clusters according to epsilon from ordered points
 	Vector<Topic> topics = determineTopics(Epsilon, tmpPath);	
 	logger.info(topics.size() + " topics have been detected.");
 
 	return topics;
     }
+    
+    
 
     /*
-     * documents from the same inverted list share at least one word. thus we
-     * cluster documents from the inverted list one by one
+     * cluster documents from one time window(i.e., one file)
+     * 
+     * @path path to the file for document in one time window
+     * 
+     * @return a vector of detected topics
+     * 
      */
     public Vector<Topic> detectTopics(String path) throws IOException {
 
@@ -226,23 +267,22 @@ public class OPTICSCluster implements Detector {
 
 	// inverted list for dictionary word
 	Vector<InvertedList> invertedLists = createDocIndex(docs);
-
 	logger.info(invertedLists.size() + " inverted index have been created.");
 	logger.info(docs.size() + " documents have been indexed.");
 
-	logger.info("cluser documents...");
-	// generate ordered points according to max epsilon and min points for
-	// OPTICS
+	
+	logger.info("cluser documents...");	
 	BufferedWriter out = new BufferedWriter(new FileWriter(path
 		+ ".orderedPoint"));
+	
+	//cluster documents from the same inverted list
 	for (InvertedList pl : invertedLists)
 	    doOPTICSCluster(pl.docs, out);
 	out.close();
 
-	logger.info("documents have been clustered.");
+	logger.info("Ordered points have been generated.");
 
-	// determine clusters according to epsilon from ordered points
-	
+	// determine clusters according to epsilon from ordered points	
 	Vector<Topic> topics = determineTopics(Epsilon, path);
 	
 
@@ -250,58 +290,54 @@ public class OPTICSCluster implements Detector {
 
 	return topics;
     }
-
-    /*
-     * detect topics from a set of documents by OPTICS clustering (non-Javadoc)
-     * 
-     * @see topicDetector.Detector#detectTopics(java.util.Vector)
-     */
-    public Vector<Topic> detectTopics(Vector<Document> docs) throws IOException {
-	BufferedWriter out = new BufferedWriter(new FileWriter(
-		"tmp/tmp.orderedPoints"));
-	doOPTICSCluster(docs, out);
-	out.close();
-
-	Vector<Topic> topics = determineTopics(Epsilon, "tmp/tmp");
-	
-	return topics;
-
-    }
+    
+    
 
     /*
      * apply OPTICS clustering algorithm, save ordered points to tmp file
      * 
      * @param docs documents to be clustered
+     * @param orderedPointWriter writer for saving the ordered points
      */
     void doOPTICSCluster(Vector<Document> docs,
 			 BufferedWriter orderedPointWriter) throws IOException {
 
-	Vector<Point> points = new Vector<Point>(docs.size());
+	//initial a point for each docuemnt
 	int k = 0;
+	Vector<Point> points = new Vector<Point>(docs.size());	
 	for (Document doc : docs) {
 	    Point p = new Point(doc, k++);
 	    points.add(p);
 	}
 
+	
 	Vector<Point> neighbor = new Vector<Point>();
 	Vector<Float> neighborDist = new Vector<Float>();
 	for (Point p : points) {
+	
 	    if (!hasProcessed(p)) {
-
+		
 		int size = getEpsNeighbor(p, points, neighbor, neighborDist);
-		p.save(orderedPointWriter);
+		
+		//noisy points won't be saved
+		if(p.coreDist!=UNDEF||p.reachDist!=UNDEF)
+		    p.save(orderedPointWriter);
+		
 		setProcessed(p);
+		
 		if (size >= MinPts&&!neighbor.isEmpty()) {
 		    MinHeap orderedSeed = new MinHeap(neighbor.size());
 		    updateOrderedSeed(p, neighbor, neighborDist, orderedSeed);
 
 		    while (!orderedSeed.isEmpty()) {
 			Point q = orderedSeed.getMinPoint();
+			
 			size = getEpsNeighbor(q, points, neighbor, neighborDist);
-			q.save(orderedPointWriter);
+			if(q.coreDist!=UNDEF||q.reachDist!=UNDEF)
+			    q.save(orderedPointWriter);			
 			setProcessed(q);
 
-			if (size >= MinPts&&!neighbor.isEmpty()) {
+			if (size >= MinPts||!neighbor.isEmpty()) {
 			    updateOrderedSeed(q, neighbor, neighborDist,
 				    orderedSeed);
 			}
@@ -316,12 +352,9 @@ public class OPTICSCluster implements Detector {
     /*
      * get the epsilon neighborhood and set the core distance if it exist;
      * 
-     * @param p current point
-     * 
-     * @param vec the set of all points
-     * 
-     * @param neighbor all epsilon neighbors, to be inserted
-     * 
+     * @param p current point 
+     * @param vec the set of all points 
+     * @param neighbor all epsilon neighbors, to be inserted 
      * @param neighborDist distance of epsilon neighbor
      * 
      * @return the size of the epsilon neighbor
@@ -355,6 +388,7 @@ public class OPTICSCluster implements Detector {
 
 	Collections.sort(distSize);
 
+	//the cluster size is sum of supports of its documents
 	int k = p.getSize();
 	int i = 0;
 	while (k < MinPts)
@@ -368,17 +402,16 @@ public class OPTICSCluster implements Detector {
 	return size;
     }
 
+    
+    
     /*
      * update the ordered seed set by updating reachability distance for each
      * neighbor sort neighbors according to reachability distance in ascending
      * order
      * 
-     * @param curr the current core object point
-     * 
+     * @param curr the current core object point 
      * @param neighbor neighbor points of the curr point
-     * 
      * @param neighborDist distance to each neighbor point
-     * 
      * @param orderedSeed to be updated
      */
     void updateOrderedSeed(Point curr, Vector<Point> neighbor,
@@ -399,10 +432,12 @@ public class OPTICSCluster implements Detector {
 
     }
 
+    
     boolean hasProcessed(Point p) {
 	return p.doc.getSupport() == 0;
     }
 
+    
     void setProcessed(Point p) {
 	p.doc.clearSupport();
     }
@@ -418,12 +453,15 @@ public class OPTICSCluster implements Detector {
     public Vector<Topic> determineTopics(float epsilon,
 				  String path)
 	    throws IOException {
+	
 	BufferedReader in = new BufferedReader(new FileReader(path
 		+ ".orderedPoint"));
-	Vector<Topic> topics = new Vector<Topic>();
-	Topic tp = null;
-
+	
+	
 	String line;
+	Topic tp = null;
+	Vector<Topic> topics = new Vector<Topic>();	
+	
 	while ((line = in.readLine()) != null) {
 	    Point p = new Point(line);
 	    if (p.reachDist > epsilon) {
@@ -436,12 +474,15 @@ public class OPTICSCluster implements Detector {
 		tp.addDoc(p.doc);
 	    }
 	}
-	Collections.sort(topics, new TopicComp());
+	
+	//sort topics according to support
+	Collections.sort(topics);
 
 	in.close();
 	return topics;
     }
 
+    
     /*
      * save topics into disk
      * 
@@ -456,14 +497,6 @@ public class OPTICSCluster implements Detector {
 	    tp.aggregateDocs();
 	    out.write(tp.toString());
 	    out.newLine();
-/*
-	    System.out.println("popularity:" + tp.getSupport());
-	    for (Document doc : tp.getPopularDocs())
-		System.out.println(doc.getSupport() + "\t"
-			+ docAccess.readDocument(doc.getId()));
-
-	    System.out.println();
-*/
 	}
 	out.flush();
 	out.close();
@@ -472,17 +505,18 @@ public class OPTICSCluster implements Detector {
     
     
     /*
-     * encode detected topics ordered by popularity
+     * encode detected topics, raw text of the top k documents for each topic are attached
      * 
      * @param topics detected topics
      * @path original tweet file path
      * 
-     * @return a string representation for transmit
+     * @return a json string for all topics
      */
     @SuppressWarnings("unchecked")
     public String encodeTopics(Vector<Topic> topics, Vector<String> paths) throws NumberFormatException, IOException{
 	HashMap<Integer,DocumentRandomAccess> docAccess=new HashMap<Integer,DocumentRandomAccess>(paths.size()*2);
 	
+	//init random accessors
 	for(String path:paths){
 	    DocumentRandomAccess docAcs = new DocumentRandomAccess(path);
 	    docAcs.startRead(path);
@@ -492,21 +526,28 @@ public class OPTICSCluster implements Detector {
 	    docAccess.put(slot, docAcs);
 	}
 	
-	JSONArray jsonary=new JSONArray();
 	
+	JSONArray jsonary=new JSONArray();	
 	
-	for (Topic tp : topics) {
+	for (int i=0;i<TOPK;i++) {
+	    Topic tp=topics.get(i);
 	    // generate popular words of the topic
 	    tp.aggregateDocs();
 	    
 	    JSONObject obj=new JSONObject();
 	    obj.put("pop", tp.getSupport());
 	    
-	    JSONArray popDocs=new JSONArray();
-	    for (Document doc : tp.getPopularDocs())
-		popDocs.add(docAccess.get(tp.getSlot()).readDocument(doc.getId()));	    
-	    obj.put("docs", popDocs);
+	    System.out.println("popularity: "+tp.getSupport());
 	    
+	    JSONArray popDocs=new JSONArray();
+	    for (Document doc : tp.getPopularDocs()){
+		String raw=docAccess.get(tp.getSlot()).readDocument(doc.getId());		
+		popDocs.add(raw);
+		
+		System.out.println(raw);
+	    }
+	    
+	    obj.put("docs", popDocs);	    
 	    jsonary.add(obj);
 	}
 
@@ -516,8 +557,14 @@ public class OPTICSCluster implements Detector {
 	return jsonary.toJSONString();
     }
 
+    
+    /*
+     * maintain the ordredSeed in increasing order based on reachability distance
+     */
     class MinHeap {
 	Vector<Point> points;
+	
+	//keep the position of previous min point, later inserted point can be placed here 
 	int vacantPos;
 
 	public MinHeap(int size) {
@@ -534,15 +581,17 @@ public class OPTICSCluster implements Detector {
 	}
 
 	public Point getMinPoint() {
+	    
+	    //remove previous min point by place the last element at its position
 	    if (vacantPos >= 0) {
 		points.set(vacantPos, points.lastElement());
-		points.remove(points.lastElement());
-		vacantPos = -1;
+		points.remove(points.lastElement());		
 	    }
 
-	    float minReachDist = 1f;
-
-	    for (int i = 0; i < points.size(); i++) {
+	    
+	    float minReachDist = points.get(0).reachDist;
+	    vacantPos=0;
+	    for (int i = 1; i < points.size(); i++) {
 		if (minReachDist > points.get(i).reachDist) {
 		    minReachDist = points.get(i).reachDist;
 		    vacantPos = i;
@@ -552,48 +601,26 @@ public class OPTICSCluster implements Detector {
 	    return points.get(vacantPos);
 	}
 
+	
 	public boolean isEmpty() {
+	    //must check both two conditions
 	    return points.isEmpty() || (points.size() == 1 && vacantPos >= 0);
 	}
     }
 
+    /*
+      * for topic support based comparison.
     class TopicComp implements Comparator<Topic> {
 	public int compare(Topic t1, Topic t2) {
 	    return t2.getSupport() - t1.getSupport();
 	}
     }
-
-    class DistanceCalculator {
-	HashMap<Long, Float> distCache;
-
-	public DistanceCalculator(int size) {
-	    init(size);
-	}
-
-	public void init(int size) {
-	    distCache = new HashMap<Long, Float>(size);
-	}
-
-	public void clear() {
-	    distCache.clear();
-	}
-
-	public float distance(Point a, Point b) {
-	    long ida = a.id, idb = b.id;
-	    long compose = a.id < b.id ? (ida << 31) + idb : (idb << 31) + ida;
-	    Float ret = distCache.get(compose);
-	    if (ret == null) {
-		ret = a.distanceTo(b);
-		distCache.put(compose, ret);
-	    } else {
-		System.out.println();
-	    }
-
-	    return ret;
-
-	}
-    }
-
+   
+     */
+    
+    /*
+     * for sort points based on distance
+     */
     class DistSizePair implements Comparable<DistSizePair> {
 	int size;
 	float dist;
@@ -662,7 +689,12 @@ public class OPTICSCluster implements Detector {
 	    out.newLine();
 	}
     }
-
+    
+    
+    /*
+     * append each document to a set of list, them we can reduce the cluster boundary.
+     * i.e., only apply clustering algorithm on each list
+     */
     class InvertedList implements Comparable<InvertedList> {
 	int id;// id of the gram, from the dictionary
 	       // float idf;
@@ -694,17 +726,20 @@ public class OPTICSCluster implements Detector {
 
     }
 
+    
+    
+    
+    //for test
     public static void main(String[] args) throws IOException, ParserConfigurationException, SAXException {
 	Configure conf = new Configure("config/config.xml");
 	Parser parser = new TweetParser(conf);
 	
-	Vector<String> paths=new Vector<String>();
-	paths.add("data/test/3");
-	paths.add("data/test/4");
+	Vector<String> paths=new Vector<String>();	
 
 	OPTICSCluster optics = new OPTICSCluster(conf, parser);
-	Vector<Topic> topics = optics.mergeTopics(paths);
-	String ret=optics.encodeTopics(topics, paths);
-	System.out.println(ret);
+	Vector<Topic> topics = optics.detectTopics("data/oneday/1");
+	paths.add("data/oneday/1");
+	optics.encodeTopics(topics, paths);
+	optics.saveTopics(topics, "data/oneday/1");
     }
 }

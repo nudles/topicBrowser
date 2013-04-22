@@ -24,38 +24,58 @@ public class Topic extends Document {
 	popularDocs = new PriorityQueue<Document>(popDocN);
     }
 
+    
+    /*
+     * add document to this topic
+     * the document's support is aggregated
+     * the popular document queue is updated
+     * 
+     * @doc the document to be add
+     */
     public void addDoc(Document doc) {
 	docs.add(doc);
 	support += doc.getSupport();
+	
+	//if doc is a topic, then all its popular docs are added to current topic
 	if (doc.getClass().equals(Topic.class)) {
 	    Topic tp = (Topic) doc;
 	    for (Document d : tp.popularDocs) {
-		addPopularDoc(d);
+		updatePopularDoc(d);
 	    }
 	} else
-	    addPopularDoc(doc);
+	    updatePopularDoc(doc);
     }
 
-    public void addPopularDoc(Document doc) {
+    /*
+     * update the popular document queue
+     * 
+     * @doc the document that may be inserted into the queue
+     */
+    public void updatePopularDoc(Document doc) {
+	
 	if (popularDocs.size() < popularDocN)
-	    popularDocs.add(doc);
+	    popularDocs.add(doc);	
 	else if (popularDocs.peek().getSupport() < doc.getSupport()
 		|| (popularDocs.peek().getSupport() == doc.getSupport() && Math
 			.random() > 0.5)) {
+	    //if queue is full and the top's support == doc's support, either keep it or replace it
+	    
 	    popularDocs.poll();
 	    popularDocs.add(doc);
 	}
     }
+    
+    
 
     public PriorityQueue<Document> getPopularDocs() {
 	return popularDocs;
     }
 
+    
     /*
-     * sum documents' support of this topic. average the word vector. sample
-     * some documents as representatives.
+     * encode the topic into a string
      * 
-     * @param writer write the aggregated topic into file stream
+     * @return a string represent the topic
      */
     public String toString() {
 
@@ -67,10 +87,10 @@ public class Topic extends Document {
 
 	return ret;
     }
+    
 
     /*
-     * parse topic string, which is of the format: popularDocNum {,popularDocId}
-     * encoded document string
+     * parse topic string, which is of the format: popularDocNum {,popularDocId} encoded document string
      * 
      * @param tpStr topic encoded in string
      */
@@ -92,10 +112,15 @@ public class Topic extends Document {
 	return tp;
     }
 
+    /*
+     * summarize the word distribution for the topic
+     * normalize it
+     */
     public void aggregateDocs() {
 	vec = aggregate(docs);
 	normalize();
     }
+    
 
     /*
      * aggregate word frequency from docs of this topic; set topic's time as any
@@ -105,8 +130,7 @@ public class Topic extends Document {
 	HashMap<Integer, Word> wordFreq = new HashMap<Integer, Word>(
 		docs.size() * 10);
 
-	// set topic's time as any doc's time, just for its time window
-	// determination
+	// set topic's time as any doc's time, just for its time window determination
 	time = docs.get(0).getTime();
 	for (Document doc : docs) {
 	    for (Word word : doc.getWordVector()) {
@@ -135,60 +159,6 @@ public class Topic extends Document {
 
     }
 
-    Document merge(Document doc1, Document doc2) {
-	Vector<Word> vec1 = doc1.getWordVector();
-	Vector<Word> vec2 = doc2.getWordVector();
-
-	Vector<Word> retVec = new Vector<Word>(vec1.size() + vec2.size());
-
-	int id1 = vec1.get(0).getId();
-	int id2 = vec2.get(0).getId();
-	int i = 1, j = 1;
-
-	while (true) {
-	    if (id1 == id2) {
-		Word w = new Word(id1, vec1.get(i - 1).getWeight()
-			+ vec2.get(j - 1).getWeight());
-		retVec.add(w);
-
-		if (i < vec1.size() && j < vec2.size()) {
-		    id1 = vec1.get(i++).getId();
-		    id2 = vec2.get(j++).getId();
-		} else
-		    break;
-	    } else if (id1 < id2) {
-		retVec.add(new Word(vec1.get(i - 1)));
-		if (i < vec1.size())
-		    id1 = vec1.get(i++).getId();
-		else {
-		    j--;
-		    break;
-		}
-
-	    } else {
-		retVec.add(new Word(vec2.get(j - 1)));
-		if (j < vec2.size())
-		    id2 = vec2.get(j++).getId();
-		else {
-		    i--;
-		    break;
-		}
-	    }
-	}
-
-	while (i < vec1.size())
-	    retVec.add(new Word(vec1.get(i)));
-
-	while (j < vec2.size())
-	    retVec.add(new Word(vec2.get(j)));
-
-	Document doc = new Document();
-
-	doc.setSupport(doc1.getSupport() + doc2.getSupport());
-	doc.setWordVector(retVec);
-
-	return doc;
-    }
 
     class WordWeightComp implements Comparator<Word> {
 	public int compare(Word w1, Word w2) {

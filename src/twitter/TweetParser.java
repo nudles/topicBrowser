@@ -25,6 +25,7 @@ import util.Configure;
 
 import util.Dictionary;
 import util.Document;
+import util.DocumentRandomAccess;
 import util.Parser;
 import util.Stemmer;
 
@@ -59,7 +60,7 @@ public class TweetParser extends Parser {
 	docSet = new TLongObjectHashMap<Document>();
 	
 	stemmer = new Stemmer();
-	initTokenizer(conf.getTokenModelFile());
+	//initTokenizer(conf.getTokenModelFile());
 	initStopWordPattern(conf.getStopWordFile());
 	initEnglishChecker();
     }
@@ -142,7 +143,11 @@ public class TweetParser extends Parser {
 	return text.split("\\s+");
     }
     
-    /*
+    
+    
+    /* parse raw tweet, filter unnecessary fields
+     * update dictionary 
+     * 
      * (non-Javadoc)
      * @see util.Parser#parseDocument(java.lang.String)
      * 
@@ -178,7 +183,7 @@ public class TweetParser extends Parser {
 	try {
 	    cdate = dateFormat.parse(date);
 	    long ctime = cdate.getTime();
-	    tweet = new Tweet(id, retid, 1, ctime, text,0);
+	    tweet = new Tweet(id, retid, 1, ctime, text);
 	} catch (ParseException e) {
 	    // TODO Auto-generated catch block
 	    e.printStackTrace();
@@ -199,6 +204,9 @@ public class TweetParser extends Parser {
 
     
     /*
+     * parse cleaned tweet, construct a {@Document} instance
+     * text is converetd into word vector  
+     * 
      * (non-Javadoc)
      * @see util.Parser#parseDocument(java.lang.String)
      */
@@ -286,6 +294,9 @@ public class TweetParser extends Parser {
 
 	return tokens.length;
     }
+     
+     
+     
 
     /*
      * save the dictionary which is sorted by entity frequency
@@ -305,16 +316,30 @@ public class TweetParser extends Parser {
 	dict.loadDictionary();
     }
     
+    
+    
+    
     //test TweetParser class
     public static void main(String []args) throws ParserConfigurationException, SAXException, IOException{
-	String text="You can imagine Princes William and Harry drawing moustaches on each other's royal portaits, can't you? #lovelyblokes";
+	
 	Configure conf = new Configure("config/config.xml");
 	conf.config();
 	
+	//String docs1="{\"id\":230529293166452736,\"text\":\"I love you so much I just wanna cuddle with you all night long <3\",\"time\":1343768641000,\"retid\":0}";
+	//String docs2="{\"id\":230621772922355712,\"text\":\"#Retweet If You Ever Had Your Heart Broken<\\/3 #Team No Love\",\"time\":1343790690000,\"retid\":0}";
+	
+	DocumentRandomAccess doca=new DocumentRandomAccess("data/test/4");
+	doca.startRead("data/test/4");
+	
+	String docs1=doca.readDocument(230529293166452736l);
+	String docs2=doca.readDocument(230530431861288961l);
+	doca.endRead();
+	
 	TweetParser parser=new TweetParser(conf);
-	HashMap<String, Integer> words=new HashMap<String, Integer> ();
-	parser.parseText(text,words);
-	System.out.println(parser.stemWord("decidedly"));
+	parser.loadDictionary();
+	Document doc1=parser.parseDocument(docs1);
+	Document doc2=parser.parseDocument(docs2);
+	System.out.println(doc1.sim(doc2));
     }
 
 }
