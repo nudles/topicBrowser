@@ -27,7 +27,7 @@ public class Topic extends Document {
     public void addDoc(Document doc) {
 	docs.add(doc);
 	support += doc.getSupport();
-	if (doc.getClass().isInstance(Topic.class)) {
+	if (doc.getClass().equals(Topic.class)) {
 	    Topic tp = (Topic) doc;
 	    for (Document d : tp.popularDocs) {
 		addPopularDoc(d);
@@ -82,8 +82,9 @@ public class Topic extends Document {
 	int next;
 	for (int i = 0; i < popDocN; i++) {
 	    Document doc = new Document();
-	    next = tpStr.indexOf(",");
-	    doc.id = Integer.parseInt(tpStr.substring(pos + 1, next));
+	    next = tpStr.indexOf(",",pos+1);
+	    doc.id = Long.parseLong(tpStr.substring(pos + 1, next));
+	    tp.popularDocs.add(doc);
 	    pos = next;
 	}
 

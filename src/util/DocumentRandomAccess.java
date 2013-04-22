@@ -32,7 +32,7 @@ public class DocumentRandomAccess {
     }
 
     public boolean startRead(String path) throws FileNotFoundException {
-	file = new RandomAccessFile(path, "r");
+	file = new RandomAccessFile(path+".txt", "r");
 	return file != null;
     }
 

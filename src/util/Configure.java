@@ -21,7 +21,7 @@ import org.xml.sax.SAXException;
 
 public class Configure {
     private enum ParamName {
-	platform, stopWord, dictionary, wordOccrT, tokenModel, startT, timeW, rawDocsD, docsD, meps, eps, minPts, logConf, unknown
+	platform, stopWord, dictionary, wordOccrT, tokenModel, startT, timeW, rawDocsD, docsD, meps, eps, minPts, logConf, port, unknown
     };
 
     public static long startTime = 0;
@@ -42,16 +42,18 @@ public class Configure {
     private float mepsValue = 1f;
     private float epsValue = 1f;
     private int minPtsValue = 100;
+    private int portid=19899;
 
     String configFile = "data/config.xml";
 
-    public Configure(String file) {
+    public Configure(String file) throws ParserConfigurationException, SAXException, IOException {
 	configFile = file;
+	config();
 
     }
 
-    public Configure() {
-	BasicConfigurator.configure();
+    public Configure() throws ParserConfigurationException, SAXException, IOException {
+	config();
     }
 
     public void config() throws ParserConfigurationException, SAXException,
@@ -74,6 +76,10 @@ public class Configure {
 	return (int) ((time - Configure.startTime) / Configure.timeWindow);	    
     }
 
+    public int getPort(){
+	return portid;
+    }
+    
     public String getPlatform() {
 	return platformName;
     }
@@ -221,6 +227,9 @@ public class Configure {
 		    if (logProperty.exists())
 			PropertyConfigurator.configure(paramValue);
 		    else BasicConfigurator.configure();
+		    break;
+		case port:
+		    portid=Integer.parseInt(paramValue);
 		    break;
 
 		default:
