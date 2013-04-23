@@ -133,7 +133,7 @@ public class Controler {
 		System.exit(0);
 	    }
 	    
-	    OPTICSCluster optics = new OPTICSCluster(conf, parser);
+	    OPTICSCluster optics = new OPTICSCluster(conf);
 	    for (File f : conf.getDocsDir().listFiles()) {
 		if (f.getName().endsWith(".txt")) {
 		    String path = f.getPath().substring(0,

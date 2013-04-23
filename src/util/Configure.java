@@ -21,7 +21,7 @@ import org.xml.sax.SAXException;
 
 public class Configure {
     private enum ParamName {
-	platform, stopWord, dictionary, wordOccrT, tokenModel, startT, timeW, rawDocsD, docsD, meps, eps, minPts, logConf, port, topk, unknown
+	platform, stopWord, dictionary, wordOccrT, tokenModel, startT, timeW, rawDocsD, docsD, meps, eps, minPts, logConf, port, topk,docN, unknown
     };
 
     public static long startTime = 0;
@@ -39,6 +39,7 @@ public class Configure {
     private File docsDir = null;
     
 
+    private float totalDocN=10000000f;
     private float mepsValue = 1f;
     private float epsValue = 1f;
     private int minPtsValue = 100;
@@ -131,6 +132,10 @@ public class Configure {
 	return mepsValue;
     }
 
+    public float getTotalDocN(){
+	return totalDocN;
+    }
+    
     /*
      * @return the minimum points of a cluster for OPTICS
      */
@@ -238,6 +243,9 @@ public class Configure {
 		    break;
 		case topk:
 		    topK=Integer.parseInt(paramValue);
+		    break;
+		case docN:
+		    totalDocN=Float.parseFloat(paramValue);
 		    break;
 
 		default:

@@ -25,6 +25,10 @@ public class Topic extends Document {
     }
 
     
+    public Vector<Document> getDocuments(){
+	return docs;
+    }
+    
     /*
      * add document to this topic
      * the document's support is aggregated
@@ -81,7 +85,7 @@ public class Topic extends Document {
 
 	String ret = String.valueOf(popularDocs.size());
 	for (Document d : popularDocs)
-	    ret += "," + d.getId();
+	    ret += ","+d.toString();
 
 	ret += "," + super.toString();
 
@@ -100,10 +104,9 @@ public class Topic extends Document {
 	Topic tp = new Topic(popDocN);
 
 	int next;
-	for (int i = 0; i < popDocN; i++) {
-	    Document doc = new Document();
-	    next = tpStr.indexOf(",",pos+1);
-	    doc.id = Long.parseLong(tpStr.substring(pos + 1, next));
+	for (int i = 0; i < popDocN; i++) {	    
+	    next = tpStr.indexOf(",{",pos+1);
+	    Document doc=Document.parse(tpStr.substring(pos+1,next));
 	    tp.popularDocs.add(doc);
 	    pos = next;
 	}

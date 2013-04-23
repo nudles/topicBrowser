@@ -111,8 +111,12 @@ public class Document implements Comparable<Document> {
 
     public void normalize() {
 	float sum = 0f;
-	for (int i = 0; i < vec.size(); i++)
+	for (int i = 0; i < vec.size(); i++){
 	    sum += vec.get(i).weight*vec.get(i).weight;
+	    if(vec.get(i).weight<0){
+		System.out.println("minus");
+	    }
+	}
 
 	sum=(float) Math.sqrt(sum);
 	for (int i = 0; i < vec.size(); i++)

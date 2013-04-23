@@ -120,7 +120,7 @@ public class WebServer {
 		else {
 		    OPTICSCluster optics = new OPTICSCluster(conf);
 		    Vector<Topic> topics = optics.mergeTopics(paths);
-		    ret = optics.encodeTopics(topics, paths);
+		    ret = optics.generateHtmlTopics(topics, paths);
 		    // System.out.println(ret.substring(0,1000));
 		}
 		
@@ -130,6 +130,8 @@ public class WebServer {
 		out.flush();
 		
 		conn.close();
+		
+		logger.info("finished");
 	    } catch (IOException e) {
 		// TODO Auto-generated catch block
 		e.printStackTrace();

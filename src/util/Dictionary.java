@@ -25,7 +25,7 @@ public class Dictionary {
     // filter strange word string, e.g., @windy_linanda,KKKK
     private int occrThreshold = 1;
     
-    final float TotalDocs=1000000f;
+    float TotalDocs=10000000f;
 
     File dictFile;
     Configure conf;
@@ -37,6 +37,7 @@ public class Dictionary {
 	dictFile = conf.getDictionaryFile();
 	
 	dict = new HashMap<String, Word>();
+	TotalDocs=conf.getTotalDocN();
 	
     }
 
